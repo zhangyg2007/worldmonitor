@@ -3643,5 +3643,56 @@
       "description": "启用伊朗、以色列、海湾和库尔德地区来源"
     },
     "unavailable": "当前面板无法使用{{preset}}预设"
+  },
+  "security": {
+    "title": "海外业务安全",
+    "tagline": "海外安全 · 制裁筛查 · 风险评估",
+    "views": {
+      "heat": "全球风险热力",
+      "events": "事件流",
+      "sanctions": "制裁名单",
+      "subscriptions": "我的订阅"
+    },
+    "filters": {
+      "sanctionsBar": "制裁名单筛选",
+      "allLists": "全部名单",
+      "sources": {
+        "ofac": "OFAC (美国)",
+        "eu": "欧盟",
+        "un": "联合国",
+        "uk": "英国",
+        "mofcom": "MOFCOM (中国)"
+      },
+      "rule50": "中国 50% 规则（MOFCOM 61 号）"
+    },
+    "risk": {
+      "title": "国别风险",
+      "score": "综合评分",
+      "mockWatermark": "demo data",
+      "factors": {
+        "conflict": "冲突密度",
+        "sanctions": "制裁命中",
+        "economic": "经济风险",
+        "displacement": "流离失所",
+        "sentiment": "舆情"
+      },
+      "approx": "风险评分为近似值（数据源部分降级）",
+      "loading": "正在加载风险数据..."
+    },
+    "country": {
+      "quickCard": "快速概览",
+      "openFull": "查看完整简报",
+      "noRecentNews": "暂无近期舆情"
+    },
+    "ai": {
+      "brief": "AI 简报",
+      "generate": "生成 AI 简报",
+      "reconnecting": "重连中...",
+      "unavailable": "AI 简报暂不可用，请稍后重试"
+    },
+    "errors": {
+      "sanctionsDown": "制裁名单暂不可用",
+      "riskDown": "风险评分暂不可用，已降级到近似值"
+    }
   }
 }
