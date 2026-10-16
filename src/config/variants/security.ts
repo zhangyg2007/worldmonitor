@@ -46,7 +46,7 @@ export function mountSecurityPanels(): Promise<void> {
   // 累加挂载 (Ruling 1):
   //   Task 2: RiskHeatmapPanel
   //   Task 3: SanctionsFilterBar
-  //   Task 4: SecuritySidebar (后续)
+  //   Task 4: SecuritySidebar
   return import('@/components/RiskHeatmapPanel')
     .then(({ RiskHeatmapPanel }) => {
       const heatmap = new RiskHeatmapPanel({
@@ -71,6 +71,19 @@ export function mountSecurityPanels(): Promise<void> {
           url,
         );
         filter.mount();
+      }),
+    )
+    .then(() =>
+      import('@/components/SecuritySidebar').then(({ SecuritySidebar }) => {
+        const sidebar = new SecuritySidebar({
+          containerId: 'security-sidebar-container',
+          onChange: (view) => {
+            // 后续: 根据视图切换主页内容
+            // eslint-disable-next-line no-console
+            console.log('view changed:', view);
+          },
+        });
+        sidebar.mount();
       }),
     );
 }
