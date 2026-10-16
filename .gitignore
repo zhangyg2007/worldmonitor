@@ -155,3 +155,7 @@ playground-pricing.html
 # compile time — `cargo test` fails on a resource path that does not exist.
 src-tauri/notices/*
 !src-tauri/notices/.gitkeep
+
+# hermes 时间转储 (会话产物, 不入库)
+dumps/
+reports/

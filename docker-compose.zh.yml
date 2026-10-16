@@ -1,0 +1,50 @@
+# zh-collector：中文财经数据源采集器（v0.2：东财快讯 + 财联社电报 + 微博热搜）
+# 用法（叠在主 compose 上，加入 WM 网络以解析 redis）：
+#   docker compose -f docker-compose.yml -f docker-compose.zh.yml up -d --build zh-collector
+services:
+  zh-collector:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.zh-collector
+    image: zhh/zh-collector:0.3
+    container_name: zh-collector
+    ports:
+      - "127.0.0.1:8081:8081"
+    env_file: .env
+    environment:
+      PORT: "8081"
+      REDIS_HOST: "worldmonitor-redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD required in .env}
+      PG_HOST: "172.20.0.1"     # worldmonitor_default 网关 = 宿主
+      PG_PORT: "5432"
+      PG_DB: "wm"
+      PG_USER: "postgres"
+      PG_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      EA_POLL_SEC: "300"      # 东财 5min
+      CLS_POLL_SEC: "300"   # 财联社 5min
+      WB_POLL_SEC: "1800"   # 微博热搜 30min
+    networks:
+      - default
+      - worldmonitor_default
+    depends_on:
+      redis:
+        condition: service_started   # 主 compose 未给 redis 配 healthcheck
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+    healthcheck:
+      test: ["CMD","curl","-fsS","http://127.0.0.1:8081/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    mem_limit: 512m
+
+networks:
+  worldmonitor_default:
+    external: true
+    name: worldmonitor_default
