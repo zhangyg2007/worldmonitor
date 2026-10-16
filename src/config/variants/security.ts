@@ -44,8 +44,15 @@ export function registerSecurityVariant(): void {
 
 export function mountSecurityPanels(): Promise<void> {
   // Task 1 初始为空实现。Task 2/3/4 会在此函数内追加挂载:
-  //   Task 2: RiskHeatmapPanel.mount()
-  //   Task 3: SanctionsFilterBar.mount()
-  //   Task 4: SecuritySidebar.mount()
-  return Promise.resolve();
+  //   Task 2: RiskHeatmapPanel.mount() — 本 task 已挂载
+  //   Task 3: SanctionsFilterBar.mount() — 后续
+  //   Task 4: SecuritySidebar.mount()    — 后续
+  return import('@/components/RiskHeatmapPanel').then(({ RiskHeatmapPanel }) => {
+    const heatmap = new RiskHeatmapPanel({
+      containerId: 'risk-heatmap-container',
+      center: [39.9042, 116.4074],  // 与 spec §1.4 一致, 北京中心
+      zoom: 2.5,
+    });
+    return heatmap.mount();
+  });
 }
