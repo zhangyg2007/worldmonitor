@@ -65,6 +65,12 @@ services:
       ais-relay:
         condition: service_started
     restart: unless-stopped
+    # Bound the JSON log so a chatty service cannot fill the root partition
+    # again (2026-10-29: an unbounded milvus log filled the disk, which broke
+    # Redis BGSAVE and took the stack to 503). 20m x 3 = 60m per service.
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
 
   ais-relay:
     build:
@@ -91,6 +97,9 @@ services:
       redis-rest:
         condition: service_started
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
 
   redis:
     image: docker.io/redis:7-alpine
@@ -106,6 +115,9 @@ services:
     volumes:
       - redis-data:/data
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
 
   redis-rest:
     build:
@@ -132,6 +144,9 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
 
 # Docker secrets — uncomment and point to your secret files.
 # Example: echo "gsk_abc123" > secrets/groq_api_key.txt
