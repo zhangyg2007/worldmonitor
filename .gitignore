@@ -88,6 +88,10 @@ src-tauri/sidecar/node/*
 # AI planning session state
 .planning/
 
+# Agent tool scratch state (local session files, tool caches)
+.opencode/
+session-ses_*.md
+
 # Compiled sebuf gateway bundle (built by scripts/build-sidecar-sebuf.mjs)
 api/[[][[].*.js
 
