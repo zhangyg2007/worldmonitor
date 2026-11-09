@@ -11,13 +11,17 @@ import { unwrapEnvelope } from '../_seed-envelope.js';
 
 const KEY = 'zh:news:eastmoney:v1';
 const META_KEY = 'seed-meta:zh:eastmoney';
-const REST_URL = process.env.REDIS_REST_URL ?? 'http://127.0.0.1:8079';
-const REST_TOKEN = process.env['REDIS' + '_' + 'TOKEN'] ?? '';
-const PASSTHROUGH = process.env.REDIS_PASSTHROUGH === 'true';
+// The compose stack injects the Redis-REST proxy as UPSTASH_REDIS_REST_URL /
+// UPSTASH_REDIS_REST_TOKEN (docker-compose.yml), which is also the name
+// server/_shared/redis.ts reads. The previous REDIS_REST_URL / REDIS_TOKEN
+// names were never present in the runtime env, so every proxied read failed
+// open and the endpoint answered with an empty item list.
+const REST_URL = process.env.UPSTASH_REDIS_REST_URL ?? 'http://127.0.0.1:8079';
+const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? '';
 
-const AUTH_HDRS = PASSTHROUGH
-  ? { Authorization: `Bearer ${REST_TOKEN}`, 'redis-passthrough': 'true' }
-  : {};
+// The proxy authenticates with a plain Bearer token (docker/redis-rest-proxy.mjs
+// checkAuth) — no passthrough header is involved.
+const AUTH_HDRS = REST_TOKEN ? { Authorization: `Bearer ${REST_TOKEN}` } : {};
 
 async function _restGet(key) {
   try {
@@ -32,16 +36,34 @@ async function _restGet(key) {
   } catch { return null; }
 }
 
-/** 归一化为 { items:[], _seed:null|obj }；兼容裸数组 / 信封 / meta 字符串 JSON */
+/**
+ * 归一化为 { items:[], _seed:null|obj }。
+ * 兼容三种写入形态：
+ *   1) {v, sourceName, fetchedAt, recordCount, state, records:[...]} — 采集器实际写出
+ *   2) {_seed:{...}, data:[...]} 信封（WM 标准 seeder）
+ *   3) 裸 JSON 数组（collector v0.1）
+ */
 function _normalizeItems(raw) {
   if (raw == null) return { items: [], _seed: null };
   let v = raw;
   if (typeof v === 'string') {
     try { v = JSON.parse(v); } catch { return { items: [], _seed: null }; }
   }
-  // 信封形态
-  if (v && !Array.isArray(v) && typeof v === 'object' && v._seed && v.data) {
-    return { items: Array.isArray(v.data) ? v.data : [], _seed: v._seed };
+  if (v && !Array.isArray(v) && typeof v === 'object') {
+    // 采集器形态：事件在 records 字段。
+    if (Array.isArray(v.records)) {
+      const seed = v.state ? {
+        fetchedAt: v.fetchedAt,
+        recordCount: v.recordCount,
+        state: v.state,
+        sourceName: v.sourceName,
+      } : null;
+      return { items: v.records, _seed: seed };
+    }
+    // 信封形态
+    if (v._seed && v.data) {
+      return { items: Array.isArray(v.data) ? v.data : [], _seed: v._seed };
+    }
   }
   if (Array.isArray(v)) return { items: v, _seed: null };
   return { items: [], _seed: null };
@@ -51,17 +73,21 @@ function _normalizeItems(raw) {
 function _parseMeta(raw) {
   if (raw == null) return null;
   try {
-    let v = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (v && typeof v === 'object' && v.state) return v;
   } catch { /* ignore */ }
   return null;
 }
 
-export async function onRequest(ctx) {
-  const req = ctx.request;
+// The sidecar dispatches flat api/*.js handlers as `mod.default(request)`
+// (src-tauri/sidecar/local-api-server.mjs) with a standard Request, matching
+// the other 24 flat handlers (api/product-catalog.js and friends). Exporting
+// `onRequest(ctx)` instead made the sidecar reject the module with
+// "Invalid handler module" (HTTP 500).
+export default async function handler(req) {
   const url = new URL(req.url);
   const cors = getPublicCorsHeaders('GET, DELETE, OPTIONS');
-  if (isDisallowedOrigin(req.headers.get('origin') ?? null)) {
+  if (isDisallowedOrigin(req)) {
     return new Response(JSON.stringify({ error: 'disallowed origin' }), { status: 403, headers: { ...cors, 'Content-Type': 'application/json' } });
   }
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
@@ -104,10 +130,13 @@ export async function onRequest(ctx) {
   const meta = _parseMeta(rawMeta);
   const seedMeta = _seed ?? meta;
 
-  // 解析发布时间为毫秒（东财东八区）
+  // 解析发布时间为毫秒。采集器归一化后的字段是 published_at（带 +08:00）；
+  // showTime 是东财原始 API 的字段形态，一并兼容。
   const published = (it) => {
     if (!it) return null;
-    const ts = it.showTime ? Date.parse(it.showTime + ' +08:00') : (it.published_at ? Date.parse(it.published_at) : null);
+    const ts = it.published_at
+      ? Date.parse(it.published_at)
+      : (it.showTime ? Date.parse(it.showTime + ' +08:00') : null);
     return ts ? ts : null;
   };
 
@@ -120,11 +149,13 @@ export async function onRequest(ctx) {
     .map(it => {
       const ts = published(it);
       return {
-        id: it.code ?? null,
+        // 采集器归一化后的字段：id / body / tickers；code / summary / stocks
+        // 是东财原始 API 的形态，一并兼容。
+        id: it.id ?? it.code ?? null,
         title: it.title ?? '',
-        summary: it.summary ?? '',
+        summary: it.body ?? it.summary ?? '',
         publishedAt: ts ? new Date(ts).toISOString() : null,
-        tickers: Array.isArray(it.stocks) ? it.stocks : [],
+        tickers: Array.isArray(it.tickers) ? it.tickers : (Array.isArray(it.stocks) ? it.stocks : []),
         raw: null,
       };
     })
@@ -140,7 +171,7 @@ export async function onRequest(ctx) {
   const full = url.searchParams.get('full') === '1';
   if (full) {
     items = items.map(it => {
-      const hit = all.find(a => a && a.code === it.id && a.title === it.title);
+      const hit = all.find(a => a && (a.id ?? a.code ?? null) === it.id && a.title === it.title);
       return { ...it, raw: hit ?? null };
     });
   }
