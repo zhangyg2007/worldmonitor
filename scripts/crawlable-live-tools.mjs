@@ -275,6 +275,21 @@ export function formatTrend(dynamicScore, trend) {
   return 'Stable or unavailable';
 }
 
+/**
+ * CII movement labels.
+ *
+ * 'Unchanged' and 'No earlier reading' are the labels the upstream freeze
+ * script (scripts/freeze-crawlable-live-pulse.mjs) emits; upstream's own
+ * parser (see upstream scripts/crawlable-live-tools.mjs, CII_MOVEMENT_UNCHANGED
+ * / CII_MOVEMENT_NO_EARLIER_READING) maps them to a zero-point movement and to
+ * "no comparison available" respectively. This fork's snapshot pipeline
+ * predates those labels, so they are handled here with upstream's semantics
+ * rather than by pulling upstream's whole 3-week script churn.
+ */
+export const CII_MOVEMENT_UNCHANGED = 'Unchanged';
+export const CII_MOVEMENT_NO_EARLIER_READING = 'No earlier reading';
+export const DEFAULT_CII_MOVEMENT_INTERVAL = 'over approximately 24 hours';
+
 export function parseCiiMovement(trend) {
   const normalized = String(trend || '').trim();
   if (
@@ -282,6 +297,22 @@ export function parseCiiMovement(trend) {
     || normalized === 'Stable / unavailable'
     || normalized === 'Stable or unavailable'
   ) {
+    return {
+      change24h: null,
+      movementText: 'stable or unavailable over approximately 24 hours',
+    };
+  }
+  // A compared-but-flat reading is a real zero, not a missing comparison:
+  // change24h 0 keeps it out of the "Stable or unavailable" column and out of
+  // the "no comparison" prose, which is upstream's behaviour too.
+  if (normalized === CII_MOVEMENT_UNCHANGED) {
+    return {
+      change24h: 0,
+      movementText: `unchanged ${DEFAULT_CII_MOVEMENT_INTERVAL}`,
+    };
+  }
+  // No earlier reading means there was nothing to compare against.
+  if (normalized === CII_MOVEMENT_NO_EARLIER_READING) {
     return {
       change24h: null,
       movementText: 'stable or unavailable over approximately 24 hours',
