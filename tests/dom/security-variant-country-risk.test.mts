@@ -86,7 +86,7 @@ describe('mountSecurityPanels 累加', () => {
   });
 
   it('Task 2 阶段 mountSecurityPanels 调用 RiskHeatmapPanel', async () => {
-    const mod = await import('@/config/variants/security');
+    const mod = await import('@/app/security-variant-panels');
     await expect(mod.mountSecurityPanels()).resolves.not.toThrow();
   });
 });

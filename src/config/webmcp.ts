@@ -152,7 +152,10 @@ export const WEBMCP_VARIANT_INVENTORIES = Object.freeze({
   happy: variantInventory(false),
   commodity: variantInventory(false),
   energy: variantInventory(false),
-  security: variantInventory(false),
+  // Security inherits the full panel set, and global-procurement is enabled
+  // in it, so the procurement tool is a fresh default here too. The inventory
+  // has to track the real panel defaults (tests/webmcp-inventory.test.mts).
+  security: variantInventory(true),
 }) satisfies Readonly<Record<SiteVariant, WebMcpVariantInventory>>;
 
 /** Shared contract budgets applied uniformly to every imperative SPA tool. */

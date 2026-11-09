@@ -169,6 +169,7 @@ const PANEL_CLUSTER: Record<string, PanelChunkName> = {
   Displacement: 'panels-risk', GeoHubs: 'panels-risk',
   Giving: 'panels-risk', InternetDisruptions: 'panels-risk',
   PopulationExposure: 'panels-risk', RadiationWatch: 'panels-risk',
+  RiskHeatmap: 'panels-risk',
   RuntimeConfig: 'panels-risk', SatelliteFires: 'panels-risk',
   SecurityAdvisories: 'panels-risk', ServiceStatus: 'panels-risk',
   SocialVelocity: 'panels-risk', SpeciesComeback: 'panels-risk',
@@ -1431,6 +1432,20 @@ export default defineConfig(({ mode }) => {
           configure: (proxy) => {
             proxy.on('error', (err) => {
               console.log('PizzINT proxy error:', err.message);
+            });
+          },
+        },
+        // Chinese market-news endpoint (api/zh/news.js). The dev server only
+        // executes the sebuf /api/{domain}/v1/* routes, so a flat handler like
+        // this one is served as a static file and never reaches its handler
+        // body. Proxy it to the local deployment instead, which runs the real
+        // api/ tree behind nginx. WM_ZH_API_TARGET overrides the target.
+        '/api/zh': {
+          target: process.env.WM_ZH_API_TARGET || 'http://127.0.0.1:3000',
+          changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              console.log('zh news proxy error:', err.message);
             });
           },
         },

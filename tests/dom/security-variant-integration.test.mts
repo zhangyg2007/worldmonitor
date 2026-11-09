@@ -23,7 +23,7 @@ describe('security variant 集成 (mountSecurityPanels 端到端)', () => {
   });
 
   it('一次 mount 调用挂载 3 个组件 (heatmap 水印 + sanctions checkboxes + sidebar items)', async () => {
-    const { mountSecurityPanels } = await import('@/config/variants/security');
+    const { mountSecurityPanels } = await import('@/app/security-variant-panels');
     await mountSecurityPanels();
 
     // 1. RiskHeatmapPanel 水印
@@ -40,7 +40,7 @@ describe('security variant 集成 (mountSecurityPanels 端到端)', () => {
   });
 
   it('SanctionsFilterBar 勾选 + SecuritySidebar 切视图 互不干扰', async () => {
-    const { mountSecurityPanels } = await import('@/config/variants/security');
+    const { mountSecurityPanels } = await import('@/app/security-variant-panels');
     // 预设 window.location.search 含空 url (mountSecurityPanels 内部 new URLSearchParams)
     await mountSecurityPanels();
 
@@ -62,7 +62,7 @@ describe('security variant 集成 (mountSecurityPanels 端到端)', () => {
   });
 
   it('localStorage sidebar 状态保留, sanctions 状态不写入 localStorage', async () => {
-    const { mountSecurityPanels } = await import('@/config/variants/security');
+    const { mountSecurityPanels } = await import('@/app/security-variant-panels');
     await mountSecurityPanels();
 
     (document.querySelector('[data-view-id="events"]') as HTMLElement).click();
@@ -76,7 +76,7 @@ describe('security variant 集成 (mountSecurityPanels 端到端)', () => {
   });
 
   it('挂载后再 mount 一次不会抛错 (幂等)', async () => {
-    const { mountSecurityPanels } = await import('@/config/variants/security');
+    const { mountSecurityPanels } = await import('@/app/security-variant-panels');
     await mountSecurityPanels();
     await expect(mountSecurityPanels()).resolves.not.toThrow();
   });

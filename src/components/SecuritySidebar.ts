@@ -41,7 +41,7 @@ export class SecuritySidebar {
       throw new Error(`Container ${this.opts.containerId} not found`);
     }
     container.className = 'security-sidebar';
-    container.innerHTML = '';
+    container.replaceChildren();
 
     for (const v of VIEWS) {
       const item = document.createElement('button');
@@ -51,9 +51,21 @@ export class SecuritySidebar {
       item.style.cssText =
         'display:block;width:100%;padding:8px 12px;text-align:left;border:0;' +
         'background:transparent;cursor:pointer;border-radius:4px;margin-bottom:2px;';
-      item.innerHTML =
-        `<span class="icon" style="margin-right:8px;">${v.icon}</span>` +
-        `<span class="label">${v.label}</span>`;
+
+      // Built as real nodes rather than an innerHTML string: the icon and the
+      // label are static here, and the repo's safe-html gate rejects direct
+      // innerHTML assignment outright.
+      const icon = document.createElement('span');
+      icon.className = 'icon';
+      icon.style.marginRight = '8px';
+      icon.textContent = v.icon;
+
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = v.label;
+
+      item.appendChild(icon);
+      item.appendChild(label);
 
       if (v.id === this.current) item.classList.add('active');
 

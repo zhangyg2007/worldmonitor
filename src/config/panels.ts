@@ -1147,7 +1147,7 @@ const ENERGY_MOBILE_MAP_LAYERS: MapLayers = {
 // UNIFIED PANEL REGISTRY
 // ============================================
 
-type PanelVariant = 'full' | 'tech' | 'finance' | 'commodity' | 'energy' | 'happy';
+type PanelVariant = 'full' | 'tech' | 'finance' | 'commodity' | 'energy' | 'happy' | 'security';
 
 const VARIANT_PANEL_CONFIGS: Record<PanelVariant, Record<string, PanelConfig>> = {
   full: FULL_PANELS,
@@ -1156,6 +1156,11 @@ const VARIANT_PANEL_CONFIGS: Record<PanelVariant, Record<string, PanelConfig>> =
   commodity: COMMODITY_PANELS,
   energy: ENERGY_PANELS,
   happy: HAPPY_PANELS,
+  // Security variant layers the country-risk / sanctions facade on top of the
+  // geopolitical product instead of narrowing it: every full-variant panel
+  // stays native so the military / conflict / climate / maritime / aviation /
+  // cyber surfaces cannot disappear (product-A hard constraint).
+  security: FULL_PANELS,
 };
 
 function getVariantPanelConfigs(variant: string): Record<string, PanelConfig> | undefined {
@@ -1188,6 +1193,7 @@ export const VARIANT_DEFAULTS: Record<string, string[]> = {
   commodity: Object.keys(VARIANT_PANEL_CONFIGS.commodity),
   energy:    Object.keys(VARIANT_PANEL_CONFIGS.energy),
   happy:     Object.keys(VARIANT_PANEL_CONFIGS.happy),
+  security:  Object.keys(VARIANT_PANEL_CONFIGS.security),
 };
 
 /**

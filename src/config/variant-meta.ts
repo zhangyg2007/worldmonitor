@@ -11,7 +11,7 @@ export interface VariantMeta {
   features: string[];
 }
 
-export const VARIANT_META: { full: VariantMeta; [k: string]: VariantMeta } = {
+export const VARIANT_META: { full: VariantMeta; security: VariantMeta; [k: string]: VariantMeta } = {
   full: {
     title: 'World Monitor - Real-Time Global Intelligence Dashboard',
     description: 'Real-time global intelligence: conflicts, markets, military, OSINT signals — live in 190+ countries; structural resilience ranked for 170, in one view.',
@@ -125,6 +125,25 @@ export const VARIANT_META: { full: VariantMeta; [k: string]: VariantMeta } = {
       'Logistics infrastructure',
       'Commodity market news',
       'Futures market data',
+    ],
+  },
+  security: {
+    title: 'World Monitor Security — Overseas Security Advisory',
+    description: 'Country risk heatmap, sanctions screening, and AI country briefs; the military, conflict, climate, maritime, aviation, and cyber layers are all retained.',
+    keywords: 'overseas security, country risk assessment, sanctions screening, OFAC, EU sanctions, UN sanctions, UK sanctions, MOFCOM, AI country brief, travel risk, business intelligence, compliance',
+    url: 'https://security.worldmonitor.app/dashboard',
+    siteName: 'World Monitor Security',
+    shortName: 'WM Security',
+    subject: 'Overseas Security · Country Risk Assessment · Sanctions Compliance',
+    classification: 'Security Intelligence Dashboard, OSINT Tool, Travel Risk Assessment',
+    categories: ['security', 'compliance', 'productivity'],
+    features: [
+      'Country risk heatmap (5 factors: conflict / sanctions / economic / displacement / sentiment)',
+      'Five sanctions list filters (OFAC / EU / UN / UK / MOFCOM)',
+      'MOFCOM 50% rule (Order No. 61)',
+      'AI country brief (reuses CountryBriefPanel + SSE)',
+      'Military / conflict / climate / maritime / aviation / cyber threat layers all retained',
+      'Chinese sentiment feed (zh-collector)',
     ],
   },
   energy: {

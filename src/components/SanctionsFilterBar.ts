@@ -25,7 +25,7 @@ export class SanctionsFilterBar {
       throw new Error(`Container ${this.opts.containerId} not found`);
     }
 
-    container.innerHTML = '';
+    container.replaceChildren();
     container.className = 'sanctions-filter-bar';
     for (const list of SANCTIONS_LISTS) {
       const label = document.createElement('label');

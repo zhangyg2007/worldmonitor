@@ -11,6 +11,9 @@
       "status": "excluded",
       "references": [
         {
+          "path": "api/zh/news.js"
+        },
+        {
           "path": "scripts/measure-trade-animation-rebuild.mjs"
         },
         {
@@ -8151,6 +8154,20 @@
       "references": [
         {
           "path": "scripts/lib/toronto-road-restrictions.mjs"
+        }
+      ]
+    },
+    {
+      "host": "security.worldmonitor.app",
+      "provider": "security.worldmonitor.app",
+      "kind": "structured",
+      "observed": true,
+      "license": "Excluded: first-party, control-plane, UI, or rendering transport",
+      "attribution": "Excluded from the external-provider count: not an ingested upstream dataset.",
+      "status": "excluded",
+      "references": [
+        {
+          "path": "src/config/variant-meta.ts"
         }
       ]
     },

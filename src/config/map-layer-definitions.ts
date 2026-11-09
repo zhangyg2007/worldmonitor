@@ -10,7 +10,7 @@ import { isDesktopRuntime } from '@/services/runtime';
  * imports this type so the picker, dispatcher, and shell stay in lockstep.
  */
 export type RendererKind = 'svg' | 'deck' | 'globe';
-export type MapVariant = 'full' | 'tech' | 'finance' | 'happy' | 'commodity' | 'energy';
+export type MapVariant = 'full' | 'tech' | 'finance' | 'happy' | 'commodity' | 'energy' | 'security';
 
 const _desktop = isDesktopRuntime();
 
@@ -347,18 +347,30 @@ export const LAYER_EXPLANATIONS: Partial<Record<keyof MapLayers, LayerExplanatio
   },
 };
 
+/**
+ * The six geo-security surfaces the security variant leads with: military,
+ * conflicts, natural (climate/hazards), ais (maritime), flights (aviation),
+ * cyberThreats. Product-A hard constraint — the variant layers its facade on
+ * top of the geopolitical catalog and must never narrow it.
+ */
+const SECURITY_LEAD_LAYER_KEYS: Array<keyof MapLayers> = [
+  'military', 'conflicts', 'natural', 'ais', 'flights', 'cyberThreats',
+];
+
+const FULL_LAYER_ORDER: Array<keyof MapLayers> = [
+  'iranAttacks', 'hotspots', 'conflicts',
+  'bases', 'nuclear', 'irradiators', 'radiationWatch', 'spaceports',
+  'cables', 'pipelines', 'storageFacilities', 'fuelShortages', 'datacenters', 'military',
+  'ais', 'tradeRoutes', 'flights', 'protests',
+  'ucdpEvents', 'displacement', 'climate', 'weather', 'canadaRoads', 'canadaAlerts',
+  'outages', 'cyberThreats', 'natural', 'fires',
+  'waterways', 'economic', 'minerals', 'gpsJamming',
+  'satellites', 'ciiChoropleth', 'resilienceScore', 'sanctions', 'dayNight', 'webcams',
+  'diseaseOutbreaks',
+];
+
 const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
-  full: [
-    'iranAttacks', 'hotspots', 'conflicts',
-    'bases', 'nuclear', 'irradiators', 'radiationWatch', 'spaceports',
-    'cables', 'pipelines', 'storageFacilities', 'fuelShortages', 'datacenters', 'military',
-    'ais', 'tradeRoutes', 'flights', 'protests',
-    'ucdpEvents', 'displacement', 'climate', 'weather', 'canadaRoads', 'canadaAlerts',
-    'outages', 'cyberThreats', 'natural', 'fires',
-    'waterways', 'economic', 'minerals', 'gpsJamming',
-    'satellites', 'ciiChoropleth', 'resilienceScore', 'sanctions', 'dayNight', 'webcams',
-    'diseaseOutbreaks',
-  ],
+  full: FULL_LAYER_ORDER,
   tech: [
     'startupHubs', 'techHQs', 'accelerators', 'cloudRegions',
     'datacenters', 'cables', 'outages', 'cyberThreats',
@@ -387,6 +399,15 @@ const VARIANT_LAYER_ORDER: Record<MapVariant, Array<keyof MapLayers>> = {
     // Energy-adjacent context
     'sanctions', 'fires', 'climate', 'weather', 'canadaRoads', 'outages', 'natural', 'canadaAlerts',
     'resilienceScore', 'dayNight',
+  ],
+  // Security variant (product A) keeps the full geopolitical catalog — the
+  // facade layers on top of it, it never narrows it — but leads the picker
+  // with the six surfaces the product is read for: military, conflicts,
+  // natural (climate/hazards), ais (maritime), flights (aviation), and
+  // cyberThreats.
+  security: [
+    'military', 'conflicts', 'natural', 'ais', 'flights', 'cyberThreats',
+    ...FULL_LAYER_ORDER.filter((k) => !SECURITY_LEAD_LAYER_KEYS.includes(k)),
   ],
 };
 

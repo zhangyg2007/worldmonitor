@@ -2805,6 +2805,20 @@ export class App {
     window.addEventListener('online', this.handleConnectivityChange);
     window.addEventListener('offline', this.handleConnectivityChange);
 
+    // Security variant facade: the country-risk heatmap overlay, the sanctions
+    // list filter bar, and the left view rail. Their containers are emitted by
+    // the layout render above, so mounting has to happen after panelLayout.init().
+    // Lazy-imported so the three components stay off the eager boot graph for
+    // every other variant.
+    if (SITE_VARIANT === 'security') {
+      try {
+        const { mountSecurityPanels } = await import('@/app/security-variant-panels');
+        await mountSecurityPanels();
+      } catch (error) {
+        console.error('[security-variant] failed to mount security panels', error);
+      }
+    }
+
     // The single automatic precise recenter for this startup (mobile only,
     // never desktop) runs as background work so a slow position lookup never
     // blocks layout, event-handler, or data readiness (#7778). It fires only

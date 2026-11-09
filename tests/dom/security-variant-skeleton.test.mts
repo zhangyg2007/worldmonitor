@@ -42,7 +42,9 @@ describe('security variant skeleton', () => {
     expect((mod.SECURITY_VARIANT as string) === 'security').toBe(true);
     expect(typeof mod.securityMeta).toBe('object');
     expect(typeof mod.registerSecurityVariant).toBe('function');
-    expect(typeof mod.mountSecurityPanels).toBe('function');
+    // mountSecurityPanels lives in app/ (config/ may not import components/).
+    const appMod = await import('@/app/security-variant-panels');
+    expect(typeof appMod.mountSecurityPanels).toBe('function');
   });
 
   it('securityMeta 含必填字段 (title/description/keywords/shortName)', async () => {

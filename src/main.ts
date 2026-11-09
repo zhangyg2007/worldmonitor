@@ -24,6 +24,14 @@ if (SITE_VARIANT === 'happy') {
   void loadVariantThemeStylesheet('happy', () => import('./styles/happy-theme.css'));
 }
 
+if (SITE_VARIANT === 'security') {
+  // Same contract as the happy variant above: the security facade stylesheet
+  // (sidebar rail, sanctions bar, heatmap overlay) stays off every other
+  // variant's eager CSS graph, and the load rejection is consumed by
+  // loadVariantThemeStylesheet.
+  void loadVariantThemeStylesheet('security', () => import('./styles/security-variant.css'));
+}
+
 // Activate the deferred dashboard app stylesheet. The build
 // (deferDashboardStylesheetLinks in vite.config.ts) emits the large dashboard
 // CSS as <link media="print" data-wm-deferred-style="dashboard"> + a <noscript>

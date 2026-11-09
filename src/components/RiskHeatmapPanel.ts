@@ -52,7 +52,7 @@ export class RiskHeatmapPanel {
 
   unmount(): void {
     if (this.container) {
-      this.container.innerHTML = '';
+      this.container.replaceChildren();
     }
     this.deckLayer = null;
     this.container = null;

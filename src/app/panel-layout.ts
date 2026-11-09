@@ -240,6 +240,7 @@ export const VARIANT_SWITCHER_DASHBOARD_URLS = {
   commodity: 'https://commodity.worldmonitor.app/dashboard',
   energy: 'https://energy.worldmonitor.app/dashboard',
   happy: 'https://happy.worldmonitor.app/dashboard',
+  security: 'https://security.worldmonitor.app/dashboard',
 } as const;
 
 export function variantSwitcherHref(
@@ -1111,6 +1112,15 @@ export class PanelLayoutManager implements AppModule {
                title="Good News${SITE_VARIANT === 'happy' ? ` ${t('common.currentVariant')}` : ''}">
               <span class="variant-icon">☀️</span>
               <span class="variant-label">Good News</span>
+            </a>
+            <span class="variant-divider"></span>
+            <a href="${vHref('security')}"
+               class="variant-option ${SITE_VARIANT === 'security' ? 'active' : ''}"
+               data-variant="security"
+               ${vTarget('security')}
+               title="Security${SITE_VARIANT === 'security' ? ` ${t('common.currentVariant')}` : ''}">
+              <span class="variant-icon">🛡️</span>
+              <span class="variant-label">Security</span>
             </a>`;
       })()}</div>
           <span class="logo">MONITOR</span><span class="logo-mobile">World Monitor</span><span class="version">v${__APP_VERSION__}</span>${BETA_MODE ? '<span class="beta-badge">BETA</span>' : ''}
@@ -1243,6 +1253,11 @@ export class PanelLayoutManager implements AppModule {
       </div>
       <div class="dashboard-tabs-mount" id="panelTabsMount"></div>
       <main id="main" tabindex="-1" class="main-content${mapRightClassActive ? ' map-right' : ''}">
+        ${SITE_VARIANT === 'security' ? `
+        <div class="security-variant-bar">
+          <div class="security-sidebar-container" id="security-sidebar-container"></div>
+          <div class="sanctions-filter-container" id="sanctions-filter-container"></div>
+        </div>` : ''}
         <div class="map-section${mapStartsCollapsed ? ' collapsed' : ''}" id="mapSection">
           <div class="panel-header">
             <div class="panel-header-left">
@@ -1268,6 +1283,7 @@ export class PanelLayoutManager implements AppModule {
             </div>
           </div>
           <div class="map-container" id="mapContainer"></div>
+          ${SITE_VARIANT === 'security' ? '<div class="risk-heatmap-container" id="risk-heatmap-container"></div>' : ''}
           ${SITE_VARIANT === 'happy' ? '<button class="tv-exit-btn" id="tvExitBtn">Exit TV Mode</button>' : ''}
           <div class="map-resize-handle" id="mapResizeHandle"></div>
           <div class="map-bottom-grid" id="mapBottomGrid"></div>

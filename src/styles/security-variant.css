@@ -1,0 +1,90 @@
+/* Security variant facade (product A — overseas security advisory).
+ *
+ * Loaded lazily through bootstrap/variant-theme.ts so it stays off every other
+ * variant's eager CSS graph, matching the happy-theme.css precedent.
+ *
+ * Container note: SecuritySidebar and SanctionsFilterBar both REPLACE the
+ * container's className on mount (`container.className = 'security-sidebar'`),
+ * so the wrapper classes below are only a first paint hint. The id selectors
+ * are the ones that survive the mount and carry the layout.
+ */
+
+.security-variant-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color, #2a3542);
+  background: var(--panel-bg, rgba(12, 16, 22, 0.6));
+}
+
+#security-sidebar-container {
+  flex: 0 0 auto;
+  min-width: 132px;
+}
+
+#sanctions-filter-container {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.security-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.security-sidebar-item {
+  color: var(--text-secondary, #9fb0c4);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.security-sidebar-item:hover {
+  background: var(--hover-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary, #e6edf5);
+}
+
+.security-sidebar-item.active {
+  background: var(--hover-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary, #e6edf5);
+  font-weight: 600;
+}
+
+.sanctions-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+
+.sanctions-checkbox-label {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* The risk heatmap is an overlay on the globe, not a replacement for it:
+ * pointer-events stay off so every retained map layer keeps its interaction,
+ * and the watermark the panel renders stays legible on top. */
+.risk-heatmap-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.risk-heatmap-watermark {
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .security-variant-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
