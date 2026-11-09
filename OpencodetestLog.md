@@ -174,3 +174,129 @@
 
 - 真 deck.gl HeatmapLayer、风险评分、制裁名单、security.worldmonitor.app 域名、multi-tenant 全部 W4-W8 范围，留后续 PR
 - 真实 Playwright e2e 需 dev server 启动 + globe.gl 渲染，留 CI 跑
+
+---
+
+## 附录 C · 迁移 / 部署 / 定制接线实施记录（2026-11-09 / opencode）
+
+> 目标：把项目从 `/root/projects/worldmonitor` 迁到 `/data/projects/worldmonitor`，
+> 让 **security variant 定制在生产 UI 上真正可见**，并交付可复现的部署流程。
+> 方法：沿用本日志的纪律 —— **不采信声明，逐层实测**；每条结论附命令与实测值。
+
+### 范围
+
+| 件 | 状态 |
+|---|---|
+| 运行栈重建到 `/data`（5 个服务，compose 标签全部指向新路径）| ✅ |
+| security variant 接线（4 处断链）| ✅ |
+| 生产镜像构建 + 切换 + 浏览器实测 | ✅ |
+| `api/zh/news.js` 修复（3 个从未暴露的 bug）| ✅ |
+| Redis 双级备份 + 数据集历史归档 | ✅ |
+| 遗留：Docker 数据根仍在根分区 | ⚠️ 已出方案，待评审 |
+
+### C.1 根因：security variant 从未接线（不是"镜像旧"这么简单）
+
+上一轮记录里"真实 Playwright e2e 留 CI 跑"这一句，正是缺口所在。单元测试直接
+`new RiskHeatmapPanel(...)` 注入 mock 容器，**测的是组件逻辑**，测不到集成链路。
+实测出 4 处断链：
+
+| # | 断链 | 实测证据 |
+|---|---|---|
+| 1 | 无调用方 | `grep mountSecurityPanels src/` 仅命中定义本身 |
+| 2 | 无 DOM 容器 | 三个 containerId 全仓库只出现在 `security.ts` 自己里 |
+| 3 | `variant-meta.ts` 缺条目 | `grep security src/config/variant-meta.ts` 零命中 → `VARIANT_META['security']` 未定义 |
+| 4 | 无切换入口 | `panel-layout.ts` 切换按钮硬编码 6 个变体，无 security；且 **`?variant=` 并不被支持**（`variant.ts` 只认 hostname 前缀 / localStorage / 构建期 `VITE_VARIANT`）——上一轮文档里那句"浏览器 `?variant=security` 切换"与实现不符 |
+
+修复：`variant-meta` 补条目 → `panels.ts` 补 `VARIANT_DEFAULTS.security`（继承
+FULL_PANELS，不收窄任何面板）→ `map-layer-definitions.ts` 显式登记 security 图层序
+（6 个地缘安全层前置，其余继承 full）→ `panel-layout.ts` 出容器 + 切换项 →
+`App.ts` 启动链在 `panelLayout.init()` 之后挂载。
+
+> 架构修正：`mountSecurityPanels` 原放在 `config/`，而 config→components 是反向导入
+> （违反 `types→config→services→components→app`）。已移至 `src/app/security-variant-panels.ts`。
+
+### C.2 顺带修好的 3 处既有破损（10-16 那批从未跑过门禁）
+
+| 破损 | 症状 | 修法 |
+|---|---|---|
+| `lint:boundaries` 红 | config→components 反向导入 | 挂载编排移到 app 层 |
+| `lint:safe-html` 红 | `SecuritySidebar` 直接 `innerHTML=` | 改真实 DOM 节点 + `replaceChildren()` |
+| `tests/desktop-one-binary-model` 红 | `SITE_VARIANTS` 含 security 但 `api/download.js` 不含 | 补 `SUPPORTED_VARIANTS` |
+| `tests/webmcp-inventory` 红 | `expectedConditional` 缺 security；且 `variantInventory(false)` 与"继承 full 面板（global-procurement 默认启用）"自相矛盾 | 改 `variantInventory(true)` + 补测试期望 |
+
+### C.3 生产事故：根分区 100% 撑爆 → Redis `503 REDIS_DOWN`
+
+不是定制问题，是主机问题：`/var/lib/docker` 在 98G 根分区上，milvus 单容器 JSON 日志
+涨到 4.7G，Redis BGSAVE 写不下 → `stop-writes-on-bgsave-error` → 写入禁用 → health 503。
+处置：截断该日志 + 清 npm/apt 缓存（释放 6.5G）→ 强制 SAVE → health 回 200。
+**遗留**：Docker 数据根仍在根分区，方案见附录 D。
+
+### C.4 两个构建门禁的真实解法（此前判定"不可能绕过"，判错了）
+
+| 门禁 | 原判定 | 实际解法 |
+|---|---|---|
+| `crawlable-live-pulse` ≤10 天 | 需连 `www.worldmonitor.app`（本机不可达）| **GitHub API 本机可达**（`api.github.com` 200），上游 `koala73/worldmonitor` main 有合法实时快照 → 直接取上游产物 |
+| `github-stars` ≤45 天 | — | `npm run freeze:github-stars`（只需 GitHub API），生成本机当天真实 star 数 |
+
+> 上游脚本在 10-28 演进过快照格式（新增 CII movement 标签 `Unchanged`），本仓库较旧的
+> 解析器不认。按**上游语义最小补齐** `parseCiiMovement`（`scripts/crawlable-live-tools.mjs`），
+> 未拉入上游 3 周的脚本 churn（`build-crawlable-corpus.mjs` 差异 1420 行且依赖多个本地
+> 没有的新模块；`crawlable-live-tools.mjs` 与 build 脚本耦合演进，单独取会断）。
+
+### C.5 `api/zh/news.js`：三个从未暴露的 bug
+
+该端点从未被真正调用过 —— 10-14 的记录里"zh-collector 双写 PG/Redis ✅"说的是**写**
+侧，**读**侧从未验证过。切换到新镜像后端点第一次真正被请求，暴露：
+
+1. **导出形态错**：侧车按 `mod.default(request)` 分发（`local-api-server.mjs:1859`），
+   文件却导出 `onRequest(ctx)` → `500 Invalid handler module`
+2. **环境变量名错**：读 `REDIS_REST_URL` / `REDIS_TOKEN`，compose 实际注入
+   `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` → 代理读失败静默返回空
+3. **信封形态不认**：采集器写 `{v,sourceName,fetchedAt,recordCount,state,records:[...]}`，
+   归一化只认裸数组与 `{_seed,data}` → 恒返回 `count:0`
+
+另修 `isDisallowedOrigin(req)` 传参（应传 req 本身，不是 origin 字符串）。
+已补 `tests/api-zh-news.test.mjs`（6 例）钉住契约。
+
+### C.6 实测验证矩阵
+
+| 检查 | 结果 |
+|---|---|
+| `tsc --noEmit` | 0 错误 |
+| `lint:boundaries` / `lint:safe-html` | 通过 |
+| 全量 vitest DOM | **128 文件 / 1011 测试全过** |
+| `npm run test:sidecar`（api/ 套件）| **487 全过** |
+| webmcp + variant 套件 | 206 全过 |
+| 新增 `tests/api-zh-news.test.mjs` | 6/6 |
+| 真实浏览器 e2e（生产栈 :3000）| **4 passed + 1 skipped**（注册表断言仅 dev 可跑）|
+| 真实浏览器 e2e（dev 栈）| **5/5 全过** |
+| 全量 `test:data` | 17 个文件失败 → **`git stash` 干净基线对照后完全相同，零新增** |
+| 容器 | 5/5 healthy，working_dir 全部 `/data/projects/worldmonitor` |
+| 数据 | Redis DBSIZE 305；PG `wm.zh_news_events` 26993 行 |
+| 端点 | `/` 200 · `/api/health?compact=1` 200 · `/api/zh/news` 200（ok:true + 真实条目）|
+| Redis 恢复演练 | 从 Tier1 RDB 起临时实例：DBSIZE 250、23 个 seed-meta、抽样值一致 |
+
+### C.7 Redis 双级备份 + 数据集历史归档
+
+键空间实测：243 键中 **227 带 TTL（请求期缓存，无历史价值）**，真正值得留存的是
+`seed-meta:*` 登记的 **23 个数据集 ≈ 361 KB**（部分数据集分片存储，如
+`energy:jodi-oil:v1:<ISO2>`）。因此：
+
+- **Tier 1 灾难恢复快照**：每日 BGSAVE → RDB（~600KB）→ `snapshot/`，保留 30 天
+- **Tier 2 历史归档**：按 `seed-meta` 登记表逐数据集前缀匹配 → `archive/<dataset>/<date>.json.gz`，
+  实测 **23 个数据集/天仅 85 KB**（一年约 13 MB）→ 于是"某数据集在某日期的值"可回溯
+- 保留降采样：日 90 天 → 周 1 年 → 月 5 年
+- cron：每日 03:30 UTC（11:30 北京，避开 PG 的 12:00）；每周日 04:15 做 `--verify`
+
+> 这层归档的价值：Redis 只存**最新值**，归档把它变成**时间序列**。例如
+> `energy:jodi-oil:v1:BE` 带 `dataMonth: 2026-06` 的逐月指标，日拱一卒即成
+> "IEA 油品库存的历史曲线"，可支撑后期回测与历史参考。
+
+### C.8 本轮遗留
+
+1. Docker 数据根仍在 `/var/lib/docker`（根分区）—— 见附录 D，待评审
+2. `security.worldmonitor.app` 无预渲染外壳（缺 `public/favico/security/` 资源）
+3. `api/zh/news.js` 只读 eastmoney 一个 key，cls / weibo 无读取端点
+4. `RiskHeatmapPanel` / `country-risk` 仍是 mock（面板有 demo data 水印）
+5. `CountryQuickCard`（spec §3 规划）未实现
+6. 8 个 Dockerfile 的 FROM digest pin 改为纯 tag（Docker Hub 不可达且钉死 digest 不在本地）
