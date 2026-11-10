@@ -1786,6 +1786,30 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        // Catch-all for the remaining flat api/*.js handlers — /api/telegram-feed,
+        // /api/x-feed, /api/health, /api/wm-session, /api/bootstrap, ... — which
+        // the dev server does NOT execute: only the sebuf /api/{domain}/v1/*
+        // routes run in-process, and everything else is served as a static file,
+        // so the browser receives the handler source instead of JSON
+        // ("Unexpected token 'import __v'", "unsupported MIME type text/html").
+        // Proxy them to the running deployment, which executes the real api/
+        // tree behind nginx.
+        //
+        // LAST on purpose: Vite matches proxy keys in declaration order, so this
+        // catch-all must not shadow the dedicated rules above (/api/earthquake,
+        // /api/pizzint, /api/yahoo, ...). The negative lookahead keeps the
+        // sebuf routes on the in-process path — the sebuf plugin's middleware
+        // runs before the proxy and calls next() for anything that is not
+        // /api/{domain}/v{N}/*. WM_API_TARGET overrides the target.
+        '^/api/(?!.*\\/v\\d+\\/)': {
+          target: process.env.WM_API_TARGET || 'http://127.0.0.1:3000',
+          changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              console.log('flat api proxy error:', err.message);
+            });
+          },
+        },
       },
     },
   };
