@@ -300,3 +300,108 @@ FULL_PANELS，不收窄任何面板）→ `map-layer-definitions.ts` 显式登�
 4. `RiskHeatmapPanel` / `country-risk` 仍是 mock（面板有 demo data 水印）
 5. `CountryQuickCard`（spec §3 规划）未实现
 6. 8 个 Dockerfile 的 FROM digest pin 改为纯 tag（Docker Hub 不可达且钉死 digest 不在本地）
+
+---
+
+## 附录 D · 前端开发环境用法（dev 代理 / 生产栈 / 变体切换）
+
+> 记录于 2026-11-09。前端改动**优先在 dev 服务上做**（HMR 即时生效），
+> 但必须知道 dev 与生产栈各自的行为边界，否则会被"dev 下十几个面板是坏的"
+> 误导。
+
+### D.1 两个入口
+
+| 用途 | 地址 | 启动方式 | 改代码后 |
+|---|---|---|---|
+| 生产栈 | http://localhost:3000 | `docker compose up -d`（/data/projects/worldmonitor）| 需重建镜像，~13 分钟 |
+| 开发服务 | http://localhost:5173 | `DEV_PORT=5173 npm run dev` | **HMR 即时生效** |
+
+security variant 切换（两个入口通用）：
+
+```js
+// 浏览器控制台
+localStorage.setItem('worldmonitor-variant', 'security'); location.reload()
+```
+
+> `?variant=security` 查询参数**不被支持**。`src/config/variant.ts` 只认三种来源：
+> hostname 前缀（`security.worldmonitor.app`）、localStorage、构建期 `VITE_VARIANT`。
+> `docs/security-variant.md` 里那句"浏览器 `?variant=security` 切换"与实现不符，
+> 已在上游接线时修正为实际机制。
+
+### D.2 dev 代理（本次新增，`build(dev)` 提交）
+
+**问题**：dev server 只执行 sebuf 路由 `/api/{domain}/v1/*`。`api/` 下的扁平
+handler（`telegram-feed`、`x-feed`、`health`、`wm-session`、`bootstrap`、
+`product-catalog` 等）被当**静态文件**返回，浏览器拿到的是源码：
+
+```
+Unexpected token 'import __v', "import __vite..." is not valid JSON
+Unexpected token '/', "// @ts-che..." is not valid JSON
+The script has an unsupported MIME type ('text/html')
+```
+
+这会让约十几个面板**只在 dev 下坏掉**，而同样的面板在生产栈是好的 —— 对前端
+调试是直接的误导。
+
+**解法**：`vite.config.ts` 的 `server.proxy` 末尾加一条兜底规则，把扁平台点转给
+运行中的生产栈（那里由 nginx + node sidecar 执行真正的 `api/` 树）：
+
+```ts
+'^/api/(?!.*\\/v\\d+\\/)': {
+  target: process.env.WM_API_TARGET || 'http://127.0.0.1:3000',
+  changeOrigin: true,
+},
+```
+
+**两个必须知道的细节**：
+
+1. **必须放在 proxy 段的最后**。Vite 按 key 的声明顺序匹配，放前面会遮蔽既有的
+   专用规则（`/api/earthquake`、`/api/pizzint`、`/api/yahoo`、`/rss/*` 等）。
+2. **sebuf 路由不受影响**。sebuf 插件的 middleware 在 proxy 之前执行，对不匹配
+   `/api/{domain}/v{N}/*` 的路径调用 `next()` 放行；正则的负向先行断言
+   `(?!.*\/v\d+\/)` 再把这类路由排除在代理之外。
+
+**覆盖范围**：本机出网受限，`www.worldmonitor.app`、coingecko、Google News 均不可达，
+因此 `api/zh/news` 另有专用规则（`WM_ZH_API_TARGET`），`/api/fred-data` 等仍走各自
+的外部代理。
+
+**实测**：改造后 dev 与生产栈报告**完全一致**的 security variant 状态
+（4 个侧栏视图 / 5 套制裁名单 / demo 水印 / 40 个面板 / 19 个图层开关），
+且剩余失败项两边相同（`503 gpsjam`、`502 telegram-feed`、`502 x-feed`、
+`503 oref-alerts`）—— 属本机出网受限导致的真实上游故障，不是 dev 模式差异。
+
+### D.3 改代码时的生效路径
+
+| 改了什么 | dev 生效方式 | 生产栈生效方式 |
+|---|---|---|
+| `src/` 前端 | HMR 即时 | 重建镜像 |
+| `api/<domain>/v1/*`（sebuf） | dev 进程内执行，**即时** | 重建镜像 |
+| `api/*.js` 扁平端点 | **不即时** —— dev 代理到生产栈执行旧代码 | `docker compose up -d --force-recreate worldmonitor`（~40 秒）|
+| `vite.config.ts` | dev 自动重启，但**端口可能漂移**（5173→5175）| 重建镜像 |
+
+### D.4 提交前的检查
+
+```bash
+npx tsc --noEmit
+npm run lint:boundaries
+npm run lint:safe-html
+npx playwright test e2e/security-variant.spec.ts --project=chromium   # dev 栈
+npx playwright test --config=playwright.prod-check.config.ts        # 已部署栈
+```
+
+`playwright.prod-check.config.ts` 是本次新增的临时配置：把 baseURL 指向
+`http://127.0.0.1:3000` 且不启 webServer，用于对**已部署**的栈跑同一份
+security-variant 断言。
+
+### D.5 端口漂移的排查
+
+dev server 重启后若端口变了（vite 默认 `strictPort: false`，端口被占就递增）：
+
+```bash
+ss -lntp | grep -E ":517[0-9]"          # 看实际监听
+pkill -f "bin/vite"                      # 清掉所有实例
+cd /data/projects/worldmonitor && DEV_PORT=5173 setsid nohup npm run dev > /tmp/vite-dev.log 2>&1 < /dev/null &
+```
+
+注意 `pkill -f "docker compose build"` 这类命令会**匹配到执行它的 shell 自身**
+（同命令行含该字符串），把自己一起杀掉 —— 改用脚本文件启动长驻进程。
