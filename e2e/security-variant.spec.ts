@@ -78,8 +78,13 @@ test.describe('security variant wiring', () => {
     // SanctionsFilterBar renders one checkbox per sanctions list.
     await expect(page.locator('#sanctions-filter-container input[data-sanctions-id]')).toHaveCount(5);
 
-    // RiskHeatmapPanel renders its demo-data watermark.
-    await expect(page.locator('.risk-heatmap-watermark')).toHaveCount(1);
+    // RiskHeatmapPanel renders one point per country it got a score for.
+    // The panel's "demo data" watermark only appears when the real CII service
+    // is unavailable and the panel fell back to the static mock set — so with
+    // the local deployment serving real scores there must be no watermark.
+    const points = await page.locator('.risk-heatmap-debug').getAttribute('data-point-count');
+    expect(Number(points)).toBeGreaterThan(0);
+    await expect(page.locator('.risk-heatmap-watermark')).toHaveCount(0);
 
     // The variant is announced on the document element, same as every other
     // variant (index.html's prepaint script reads the stored variant).

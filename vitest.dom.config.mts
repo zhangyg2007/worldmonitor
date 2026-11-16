@@ -46,6 +46,11 @@ export default defineConfig({
     // contributor named after the repo's more common convention — the exact
     // never-reported-test failure this directory exists to prevent.
     include: ['tests/dom/**/*.test.{mts,mjs}'],
+    // Network guard: unit tests must never reach the public internet. On this
+    // host a blocked hostname resolves to a DNS-poisoned address and the
+    // fetch hangs until the connect timeout, so the guard blocks the call
+    // before any DNS lookup happens and reports which file tried.
+    setupFiles: ['tests/dom/setup-network-guard.mts'],
     // #6984: vitest's 5000ms default is not a budget anyone chose. Several
     // DOM files pay a large module-graph transform to the first test
     // (`@/app/data-loader`, story-data, economic), and under load that lands

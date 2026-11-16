@@ -10,7 +10,14 @@ import {
 } from './_proxy-utils.cjs';
 
 const OFAC_ACCEPT = 'application/xml, text/xml, */*';
-const OFAC_SIGNED_DOWNLOAD_TIMEOUT_MS = 45_000;
+// The download budget is overridable because the signed S3 download is slow
+// from some networks (a direct curl of the same URL takes ~120s on a link
+// where 45s is not enough). The default is unchanged for CI.
+const OFAC_TIMEOUT_OVERRIDE_MS = Number(process.env.SANCTIONS_FETCH_TIMEOUT_MS);
+const OFAC_SIGNED_DOWNLOAD_TIMEOUT_MS =
+  Number.isFinite(OFAC_TIMEOUT_OVERRIDE_MS) && OFAC_TIMEOUT_OVERRIDE_MS > 0
+    ? OFAC_TIMEOUT_OVERRIDE_MS
+    : 45_000;
 // Native fetch follows the bootstrap redirect before returning the streaming
 // XML Response, so this signal remains attached during body consumption. Keep
 // the healthy direct path on the full bounded download budget.

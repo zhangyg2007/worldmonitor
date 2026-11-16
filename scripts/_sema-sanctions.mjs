@@ -15,7 +15,13 @@ export const SEMA_XML_URL = 'https://www.international.gc.ca/world-monde/assets/
 export const SEMA_CACHE_KEY = SEMA_XML_URL;
 // Live list is ~1.7 MB. Raise the ceiling deliberately (4–8 MB).
 export const SEMA_MAX_BYTES = 8 * 1024 * 1024;
-export const SEMA_TIMEOUT_MS = 45_000;
+// Same override as the OFAC source: SANCTIONS_FETCH_TIMEOUT_MS raises the
+// download budget on slow links. The 45s default is unchanged.
+const SEMA_TIMEOUT_OVERRIDE_MS = Number(process.env.SANCTIONS_FETCH_TIMEOUT_MS);
+export const SEMA_TIMEOUT_MS =
+  Number.isFinite(SEMA_TIMEOUT_OVERRIDE_MS) && SEMA_TIMEOUT_OVERRIDE_MS > 0
+    ? SEMA_TIMEOUT_OVERRIDE_MS
+    : 45_000;
 export const SEMA_PROGRAM = 'SEMA';
 export const SANCTIONS_SOURCE_VERSION = 'ofac-sls-advanced-xml+sema-ca-v3';
 // List publication can sit days-to-weeks between designation batches.

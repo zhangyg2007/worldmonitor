@@ -5,6 +5,7 @@
 // 注意: 不替换 globe; 6 面板已有图层全部保留 (用户硬约束)
 
 import { getRiskScores, type RiskScore } from '@/services/country-risk';
+import { getCountryCentroid, preloadCountryGeometry } from '@/services/country-geometry';
 
 export interface RiskHeatmapPanelOptions {
   containerId: string;
@@ -17,10 +18,20 @@ interface ScatteredPoint {
   weight: number;
   iso2: string;
   name: string;
+  advisoryLevel: string | null;
+  trend: string | null;
+  mock: boolean;
 }
 
-/** ISO2 → 中心经纬度 (5 个 mock 国家) */
-const ISO2_COORDS: Record<string, [number, number]> = {
+/**
+ * ISO2 → 中心经纬度。
+ *
+ * 以前是 5 个 mock 国家的硬编码表，真实数据回来后（31 国）其余国家会落到
+ * [0,0]，热力层会画到几内亚湾。现在改用仓库既有的国家几何服务
+ * (src/services/country-geometry.ts) 从 countries.geojson 的 bbox 算质心，
+ * 覆盖全部有几何的国家；几何未加载时回落到坐标表。
+ */
+const ISO2_COORDS_FALLBACK: Record<string, [number, number]> = {
   IR: [53.6880, 32.4279],
   RU: [105.3188, 61.5240],
   CN: [104.1954, 35.8617],
@@ -28,8 +39,12 @@ const ISO2_COORDS: Record<string, [number, number]> = {
   BR: [-51.9253, -14.2350],
 };
 
-function iso2ToCoords(iso2: string): [number, number] {
-  return ISO2_COORDS[iso2] || [0, 0];
+function iso2ToCoords(iso2: string): [number, number] | null {
+  const centroid = getCountryCentroid(iso2);
+  if (centroid) {
+    return [centroid.lat, centroid.lon];
+  }
+  return ISO2_COORDS_FALLBACK[iso2] ?? null;
 }
 
 export class RiskHeatmapPanel {
@@ -46,6 +61,9 @@ export class RiskHeatmapPanel {
     }
 
     this.scores = await getRiskScores();
+    // 几何服务可能尚未加载（首次进入时 App 的预加载还在途），先确保加载完，
+    // 否则国家质心取不到，热力点会缺失。
+    await preloadCountryGeometry();
     this.renderWaterMark();
     this.attachDeckLayer();
   }
@@ -58,9 +76,13 @@ export class RiskHeatmapPanel {
     this.container = null;
   }
 
-  /** mock 数据水印 (避免与真数据混淆) */
+  /**
+   * 数据来源水印。只有在真实服务不可用、降级到 mock 数据时才标 "demo data"；
+   * 真实 CII 评分不标，避免把真数据误当成演示数据。
+   */
   private renderWaterMark(): void {
     if (!this.container) return;
+    if (!this.scores.some(s => s.mock)) return;
     const mark = document.createElement('div');
     mark.className = 'risk-heatmap-watermark';
     mark.textContent = 'demo data';
@@ -78,12 +100,21 @@ export class RiskHeatmapPanel {
   private attachDeckLayer(): void {
     if (!this.container) return;
 
-    const points: ScatteredPoint[] = this.scores.map(s => ({
-      coordinates: iso2ToCoords(s.iso2),
-      weight: s.score / 100,
-      iso2: s.iso2,
-      name: s.name,
-    }));
+    const points: ScatteredPoint[] = [];
+    for (const s of this.scores) {
+      const coords = iso2ToCoords(s.iso2);
+      // 没有坐标的国家直接跳过，不要画到 [0,0]。
+      if (!coords) continue;
+      points.push({
+        coordinates: coords,
+        weight: s.score / 100,
+        iso2: s.iso2,
+        name: s.name,
+        advisoryLevel: s.advisoryLevel ?? null,
+        trend: s.trend ?? null,
+        mock: s.mock,
+      });
+    }
 
     this.deckLayer = {
       type: 'ScatterplotLayer',
